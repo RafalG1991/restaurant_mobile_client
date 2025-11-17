@@ -36,11 +36,11 @@ class ApiClient {
   }
 
   /// Dopasuj payload do swojego backendu jeśli inny
-  Future<void> addItems({required int orderId, required List<Map<String, dynamic>> items}) async {
+  Future<void> addItems({required int id, required String choice, required int quantity}) async {
     final r = await http.post(
       Uri.parse('$_base/order/add'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'orderId': orderId, 'items': items}),
+      body: jsonEncode({'id': id, 'choice': choice, 'quantity': quantity}),
     );
     if (r.statusCode >= 400) {
       throw Exception('Add items failed: ${r.statusCode} ${r.body}');

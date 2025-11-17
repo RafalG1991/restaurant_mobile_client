@@ -10,6 +10,7 @@ class OrderProvider extends ChangeNotifier {
 
   int? tableNumber;
   int? orderId;
+  String? orderStatus; // 'OPEN', 'PENDING', 'REJECTED', ...
   List<MenuItem> menu = [];
   final List<BasketItem> basket = [];
 
@@ -58,23 +59,34 @@ class OrderProvider extends ChangeNotifier {
   }
 
   Future<void> ensureOrderOpened({int customersNumber = 1}) async {
-    if (tableNumber == null) throw Exception('No tableNumber');
-
-    loading = true; error = null; notifyListeners();
-    try {
-      final res = await _api.getActive(tableNumber!);
-      if (res['active'] == true) {
-        orderId = (res['orderId'] as num).toInt();
-      } else {
-        orderId = await _api.openOrder(tableNumber!, customersNumber: customersNumber);
-      }
-      await persist();
-    } catch (e) {
-      error = e.toString();
-    } finally {
-      loading = false; notifyListeners();
-    }
+  if (tableNumber == null) {
+    throw Exception('No tableNumber');
   }
+
+  loading = true;
+  error = null;
+  notifyListeners();
+
+  try {
+    final res = await _api.openOrder(tableNumber!, customersNumber: customersNumber);
+
+    if (!res.ok) {
+      error = res.error;
+      orderStatus = null;
+      orderId = null;
+    } else {
+      orderId = res.orderId;         // możesz nawet go nie używać, ale niech będzie
+      orderStatus = res.status;      // najczęściej 'PENDING'
+    }
+
+    await persist();
+  } catch (e) {
+    error = e.toString();
+  } finally {
+    loading = false;
+    notifyListeners();
+  }
+}
 
   Future<void> loadMenu() async {
     loading = true; error = null; notifyListeners();
@@ -97,31 +109,78 @@ class OrderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void changeQty(BasketItem it, int delta) {
-    it.quantity += delta;
-    if (it.quantity <= 0) {
-      basket.removeWhere((b) => b.id == it.id);
+  void changeQty(BasketItem item, int delta) {
+    final index = basket.indexWhere((b) => b.id == item.id);
+    if (index == -1) return;
+    basket[index].quantity += delta;
+    if (basket[index].quantity <= 0) {
+      basket.removeAt(index);
     }
     notifyListeners();
   }
 
+void removeFromBasket(BasketItem item) {
+  basket.removeWhere((b) => b.id == item.id);
+  notifyListeners();
+}
+
   double get basketTotal => basket.fold(0.0, (p, e) => p + e.price * e.quantity);
 
   Future<void> submitBasket() async {
-    if (orderId == null) throw Exception('No orderId');
+    if (tableNumber == null) {
+      throw Exception('No tableNumber');
+    }
+    if (basket.isEmpty) return;
+
+    // 1. upewnij się, że status jest aktualny
+    await refreshOrderStatus();
+
+    if (orderStatus != 'OPEN') {
+      throw Exception('Order not confirmed by staff yet.');
+    }
+
     final items = basket.map((e) => {
       'id': e.id,
       'quantity': e.quantity,
     }).toList();
 
-    loading = true; error = null; notifyListeners();
+    loading = true;
+    error = null;
+    notifyListeners();
+
     try {
-      await _api.addItems(orderId: orderId!, items: items);
+      await _api.addItems(
+        tableNumber: tableNumber!,
+        items: items,
+      );
       basket.clear();
     } catch (e) {
       error = e.toString();
     } finally {
-      loading = false; notifyListeners();
+      loading = false;
+      notifyListeners();
     }
   }
+
+  Future<Map<String, dynamic>> fetchOrderDetails() async {
+    if (tableNumber == null) {
+      throw Exception('No tableNumber');
+    }
+    return await _api.showOrderByTable(tableNumber!);
+    }
+
+  Future<void> refreshOrderStatus() async {
+    if (tableNumber == null) return;
+
+    try {
+      final status = await _api.getClientOrderStatus(tableNumber!);
+      orderStatus = status;  // może być null (brak zamówienia)
+      notifyListeners();
+    } catch (e) {
+      // można np. zapisać error, ale nie blokuj na siłę
+      error = e.toString();
+      notifyListeners();
+    }
+  }
+
 }

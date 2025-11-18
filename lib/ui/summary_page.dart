@@ -11,7 +11,7 @@ class SummaryPage extends StatefulWidget {
 }
 
 class _SummaryPageState extends State<SummaryPage> {
-  Map<String, dynamic>? _orderDetails;
+  Map<String, dynamic>? _data;
   bool _loading = false;
   String? _error;
 
@@ -23,7 +23,6 @@ class _SummaryPageState extends State<SummaryPage> {
 
   Future<void> _load() async {
     final p = context.read<OrderProvider>();
-
     if (p.tableNumber == null) {
       setState(() {
         _error = 'Brak przypisanego stolika.';
@@ -39,7 +38,7 @@ class _SummaryPageState extends State<SummaryPage> {
     try {
       final res = await p.fetchOrderDetails();
       setState(() {
-        _orderDetails = res;
+        _data = res;
       });
     } catch (e) {
       setState(() {
@@ -56,15 +55,29 @@ class _SummaryPageState extends State<SummaryPage> {
   Widget build(BuildContext context) {
     final p = context.watch<OrderProvider>();
 
+    final orders = (_data?['order'] as List?) ?? const [];
+    final hasOrder = orders.isNotEmpty;
+
     return Scaffold(
-      appBar: AppBar(title: Text('Stolik ${p.tableNumber ?? "-"}')),
+      appBar: AppBar(
+        title: Text('Stolik ${p.tableNumber ?? "-"}'),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text('Błąd: $_error'))
-              : _orderDetails == null
-                  ? const Center(child: Text('Brak danych zamówienia'))
-                  : _buildContent(context, p),
+              : !hasOrder
+                  ? const Center(
+                      child: Text(
+                        'Brak otwartego zamówienia dla tego stolika.',
+                        style: TextStyle(color: AppColors.textMuted),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: _buildOrderCard(orders.first as Map<String, dynamic>),
+                    ),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(12.0),
@@ -93,62 +106,83 @@ class _SummaryPageState extends State<SummaryPage> {
     );
   }
 
-  Widget _buildContent(BuildContext context, OrderProvider p) {
-    final items = (_orderDetails!['order'] as List?) ?? [];
+  Widget _buildOrderCard(Map<String, dynamic> order) {
+    final orderId = order['order_id'];
+    final tableNumber = order['table_number'];
+    final customers = order['customers_number'];
+    final itemsStr = (order['items'] ?? '') as String;
+    final total = (order['total'] as num?)?.toDouble() ?? 0.0;
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Stan zamówienia:',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textMuted,
+    // rozbij string "Gin Tonic x2, Mojito x1" na listę
+    final List<String> itemsList = itemsStr.isEmpty
+        ? []
+        : itemsStr.split(',').map((s) => s.trim()).toList();
+
+    return Card(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Zamówienie #$orderId',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: items.isEmpty
-                ? const Center(child: Text('Brak pozycji w zamówieniu.'))
-                : ListView.builder(
-                    itemCount: items.length,
-                    itemBuilder: (_, i) {
-                      final it = items[i] as Map<String, dynamic>;
-
-                      final name = (it['drink_name'] ??
-                              it['name'] ??
-                              it['choice'] ??
-                              'Pozycja')
-                          .toString();
-
-                      final qtyRaw =
-                          it['quantity'] ?? it['qty'] ?? it['amount'] ?? 1;
-                      final qty = (qtyRaw as num).toInt();
-
-                      final priceRaw =
-                          it['price'] ?? it['drink_price'] ?? it['unit_price'] ?? 0;
-                      final price = (priceRaw as num).toDouble();
-
-                      return ListTile(
-                        title: Text(
-                          name,
-                          style: const TextStyle(color: AppColors.textPrimary),
-                        ),
-                        subtitle: Text(
-                          'x$qty',
-                          style: const TextStyle(color: AppColors.textMuted),
-                        ),
-                        trailing: Text(
-                          '${price.toStringAsFixed(2)} zł',
-                          style: const TextStyle(color: AppColors.textPrimary),
-                        ),
-                      );
-                    },
+            const SizedBox(height: 8),
+            Text(
+              'Stolik: $tableNumber   •   Gości: $customers',
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Pozycje:',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (itemsList.isEmpty)
+              const Text(
+                'Brak pozycji w zamówieniu.',
+                style: TextStyle(color: AppColors.textMuted),
+              )
+            else
+              ...itemsList.map(
+                (line) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                  child: Text(
+                    '• $line',
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-          ),
-        ],
+                ),
+              ),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'Razem: ${total.toStringAsFixed(2)} zł',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

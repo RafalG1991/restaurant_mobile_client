@@ -16,32 +16,38 @@ class MenuPage extends StatefulWidget {
 }
 
 class _MenuPageState extends State<MenuPage> {
-  Timer? _statusTimer;
+  Timer? _timer;
 
-  @override
-  void initState() {
-    super.initState();
-    final order = context.read<OrderProvider>();
+@override
+void initState() {
+  super.initState();
+  final order = context.read<OrderProvider>();
+  if (order.menu.isEmpty) {
+    order.loadMenu();
+  }
 
-    // Załaduj menu przy pierwszym wejściu
-    if (order.menu.isEmpty) {
-      order.loadMenu();
+  _timer = Timer.periodic(const Duration(seconds: 5), (t) async {
+    if (!mounted) {
+      t.cancel();
+      return;
+    }
+    final p = context.read<OrderProvider>();
+
+    // jeśli już zaakceptowane/odrzucone – przestań pytać
+    if (p.orderStatus == 'OPEN' || p.orderStatus == 'REJECTED') {
+      t.cancel();
+      return;
     }
 
-    // Od razu sprawdź aktualny status zamówienia
-    order.refreshOrderStatus();
+    await p.refreshOrderStatus();
+  });
+}
 
-    // Co 5 sekund odświeżaj status (czy kelner zaakceptował)
-    _statusTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      order.refreshOrderStatus();
-    });
-  }
-
-  @override
-  void dispose() {
-    _statusTimer?.cancel();
-    super.dispose();
-  }
+@override
+void dispose() {
+  _timer?.cancel();
+  super.dispose();
+}
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +128,7 @@ class _MenuPageState extends State<MenuPage> {
                                 ),
                                 const SizedBox(height: 6),
                                 OutlinedButton(
-                                  onPressed: isRejected
+                                  onPressed: (isRejected || isPending)
                                       ? null
                                       : () => order.addToBasket(m),
                                   child: const Text('Add'),
@@ -152,106 +158,129 @@ class _BasketBar extends StatelessWidget {
     required this.isRejected,
   });
 
-  void _showBasketDetails(BuildContext context, OrderProvider order) {
+  void _showBasketDetails(BuildContext context) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[700],
-                  borderRadius: BorderRadius.circular(999),
-                ),
+        // TU łapiemy aktualny OrderProvider – bottom sheet reaguje na notifyListeners()
+        return Consumer<OrderProvider>(
+          builder: (_, order, __) {
+            final total = order.basketTotal;
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                // żeby nie wpadło pod systemowe „gesty”
+                bottom: 24 + MediaQuery.of(context).viewInsets.bottom,
               ),
-              const Text(
-                'Twój koszyk',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (order.basket.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text(
-                    'Koszyk jest pusty.',
-                    style: TextStyle(color: AppColors.textMuted),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // „grip” u góry
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[700],
+                      borderRadius: BorderRadius.circular(999),
+                    ),
                   ),
-                )
-              else
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: order.basket.length,
-                    itemBuilder: (_, i) {
-                      final item = order.basket[i];
-                      return ListTile(
-                        title: Text(
-                          item.name,
-                          style:
-                              const TextStyle(color: AppColors.textPrimary),
-                        ),
-                        subtitle: Text(
-                          '${item.price.toStringAsFixed(2)} zł',
-                          style:
-                              const TextStyle(color: AppColors.textMuted),
-                        ),
-                        leading: IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          color: Colors.redAccent,
-                          onPressed: () =>
-                              order.removeFromBasket(item),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.remove),
-                              onPressed: () =>
-                                  order.changeQty(item, -1),
-                            ),
-                            Text(
-                              '${item.quantity}',
+                  const Text(
+                    'Twój koszyk',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  if (order.basket.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text(
+                        'Koszyk jest pusty.',
+                        style: TextStyle(color: AppColors.textMuted),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: order.basket.length,
+                        itemBuilder: (_, i) {
+                          final item = order.basket[i];
+                          return ListTile(
+                            title: Text(
+                              item.name,
                               style: const TextStyle(
-                                  color: AppColors.textPrimary),
+                                color: AppColors.textPrimary,
+                              ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.add),
-                              onPressed: () =>
-                                  order.changeQty(item, 1),
+                            subtitle: Text(
+                              '${item.price.toStringAsFixed(2)} zł',
+                              style: const TextStyle(
+                                color: AppColors.textMuted,
+                              ),
                             ),
-                          ],
-                        ),
-                      );
-                    },
+                            leading: IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              color: Colors.redAccent,
+                              onPressed: (isPending || isRejected)
+                                  ? null
+                                  : () => order.removeFromBasket(item),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.remove),
+                                  onPressed: (isPending || isRejected)
+                                      ? null
+                                      : () => order.changeQty(item, -1),
+                                ),
+                                Text(
+                                  '${item.quantity}',
+                                  style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add),
+                                  onPressed: (isPending || isRejected)
+                                      ? null
+                                      : () => order.changeQty(item, 1),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      'Razem: ${total.toStringAsFixed(2)} zł',
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  'Razem: ${order.basketTotal.toStringAsFixed(2)} zł',
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -287,15 +316,16 @@ class _BasketBar extends StatelessWidget {
             // Lewa część – kliknięcie otwiera szczegóły koszyka
             Expanded(
               child: InkWell(
-                onTap: () => _showBasketDetails(context, order),
+                onTap: () => _showBasketDetails(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       'Basket: ${order.basket.length} items — ${total.toStringAsFixed(2)} zł',
-                      style:
-                          const TextStyle(color: AppColors.textPrimary),
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(

@@ -100,27 +100,30 @@ class OrderProvider extends ChangeNotifier {
   }
 
   void addToBasket(MenuItem item, {int qty = 1}) {
-    final i = basket.indexWhere((b) => b.id == item.id);
-    if (i >= 0) {
-      basket[i].quantity += qty;
+    final index = basket.indexWhere((b) => b.id == item.id);
+    if (index >= 0) {
+      basket[index].quantity += qty;
     } else {
-      basket.add(BasketItem(id: item.id, name: item.name, price: item.price, quantity: qty));
+      basket.add(BasketItem(
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: qty,
+      ));
     }
     notifyListeners();
   }
 
   void changeQty(BasketItem item, int delta) {
-    final index = basket.indexWhere((b) => b.id == item.id);
-    if (index == -1) return;
-    basket[index].quantity += delta;
-    if (basket[index].quantity <= 0) {
-      basket.removeAt(index);
-    }
-    notifyListeners();
+  item.quantity += delta;
+  if (item.quantity <= 0) {
+    basket.remove(item);
   }
+  notifyListeners();
+}
 
 void removeFromBasket(BasketItem item) {
-  basket.removeWhere((b) => b.id == item.id);
+  basket.remove(item);
   notifyListeners();
 }
 

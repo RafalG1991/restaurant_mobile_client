@@ -18,8 +18,8 @@ class _ScanPageState extends State<ScanPage> {
   Future<void> _handleScanWithGuests(BuildContext context, String raw) async {
     final order = context.read<OrderProvider>();
 
+    // 1. Najpierw przypnij stolik na podstawie QR
     try {
-      // najpierw przypnij stolik na podstawie QR (tak jak teraz)
       await order.attachTableFromQr(raw);
     } catch (e) {
       if (!mounted) return;
@@ -30,9 +30,9 @@ class _ScanPageState extends State<ScanPage> {
       return;
     }
 
+    // 2. Dialog z wyborem liczby gości
     int guests = 1;
 
-    // popup z wyborem liczby gości
     final selected = await showDialog<int>(
       context: context,
       builder: (ctx) {
@@ -84,6 +84,7 @@ class _ScanPageState extends State<ScanPage> {
 
     guests = selected;
 
+    // 3. Spróbuj otworzyć zamówienie z tą liczbą gości
     try {
       await order.ensureOrderOpened(customersNumber: guests);
       if (!mounted) return;

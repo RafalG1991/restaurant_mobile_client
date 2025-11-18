@@ -83,6 +83,8 @@ class OrderProvider extends ChangeNotifier {
     await persist();
   } catch (e) {
     error = e.toString();
+    notifyListeners();
+    rethrow;
   } finally {
     loading = false;
     notifyListeners();
@@ -160,6 +162,8 @@ void removeFromBasket(BasketItem item) {
       basket.clear();
     } catch (e) {
       error = e.toString();
+      notifyListeners();
+      rethrow; // <<< TO JEST WAŻNE
     } finally {
       loading = false;
       notifyListeners();
@@ -185,6 +189,11 @@ void removeFromBasket(BasketItem item) {
       error = e.toString();
       notifyListeners();
     }
+  }
+
+  Future<void> callHelp(String type) async {
+    if (tableNumber == null) throw Exception('No tableNumber');
+    await _api.sendSignal(tableNumber!, type);
   }
 
 }

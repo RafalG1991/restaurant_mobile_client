@@ -20,6 +20,20 @@ class OpenOrderResult {
 class ApiClient {
   final _base = AppConfig.apiBase;
 
+  Future<void> sendSignal(int tableNumber, String type) async {
+    final r = await http.post(
+      Uri.parse('${AppConfig.apiBase}/order/client/signal'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'tableNumber': tableNumber,
+        'type': type, // "WAITER" | "CUTLERY" | "CLEANING"
+      }),
+    );
+    if (r.statusCode >= 400) {
+      throw Exception('Signal failed: ${r.statusCode} ${r.body}');
+    }
+  }
+
    Future<OpenOrderResult> openOrder(int tableNumber, {int customersNumber = 1}) async {
     final r = await http.post(
       Uri.parse('$_base/order/client/open'),
@@ -34,6 +48,15 @@ class ApiClient {
         ? jsonDecode(r.body) as Map<String, dynamic>
         : <String, dynamic>{};
 
+    if (r.statusCode == 409) {
+    final data = jsonDecode(r.body) as Map<String, dynamic>;
+    if (data['error'] == 'too many guests') {
+      throw Exception(
+        'Za dużo gości na ten stolik (max ${data['max_capacity']}).',
+      );
+    }
+    }
+
     if (r.statusCode >= 400) {
       return OpenOrderResult(
         ok: false,
@@ -47,7 +70,7 @@ class ApiClient {
       orderId: idRaw == null ? null : (idRaw as num).toInt(),
       status: body['status']?.toString() ?? 'PENDING',
     );
-  }
+    }
 
   Future<List<MenuItem>> getMenu() async {
     final r = await http.get(Uri.parse('$_base/order/menu'));
@@ -63,30 +86,62 @@ class ApiClient {
   ///
   /// Zakładam, że id stolika (table_id) == numer stolika (tableNumber).
   Future<void> addItems({
-    required int tableNumber,
-    required List<Map<String, dynamic>> items,
-  }) async {
-    for (final item in items) {
-      final drinkId = item['id'];
-      final quantity = item['quantity'];
-      final r = await http.post(
-        Uri.parse('$_base/order/add'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'id': tableNumber,     // u Ciebie backend: id -> table_id
-          'choice': drinkId,     // id drinka
-          'quantity': quantity,  // ilość
-        }),
-      );
-      if (r.statusCode >= 400) {
-        throw Exception('Add item failed: ${r.statusCode} ${r.body}');
+  required int tableNumber,
+  required List<Map<String, dynamic>> items,
+}) async {
+  for (final item in items) {
+    final drinkId = item['id'];
+    final quantity = item['quantity'];
+
+    final r = await http.post(
+      Uri.parse('$_base/order/add'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'id': tableNumber,     // u Ciebie backend: id -> table_id
+        'choice': drinkId,     // id drinka
+        'quantity': quantity,  // ilość
+      }),
+    );
+
+    if (r.statusCode >= 400) {
+      throw Exception('Dodawanie pozycji nie powiodło się: ${r.statusCode} ${r.body}');
+    }
+
+    final body = jsonDecode(r.body) as Map<String, dynamic>;
+    final added = body['added'] as String?;
+
+    if (added == null) {
+      throw Exception('Nieprawidłowa odpowiedź serwera (brak pola "added").');
+    }
+
+    if (added != 'ok') {
+      // backend zwraca np. "error: ingredient Rum insufficient"
+      if (added.startsWith('error: ingredient') && added.contains('insufficient')) {
+        // spróbujmy wyciągnąć nazwę składnika/drinka
+        String niceMessage =
+            'Nie można zrealizować zamówienia – za mało składników. Zmodyfikuj zamówienie lub zapytaj obsługę.';
+
+        try {
+          // "error: ingredient Rum insufficient"
+          final afterKeyword = added.split('ingredient').last.trim(); // "Rum insufficient"
+          final ingredientName = afterKeyword.replaceAll('insufficient', '').trim();
+          if (ingredientName.isNotEmpty) {
+            niceMessage =
+                'Nie można zrealizować zamówienia – za mało składników dla drinków z: $ingredientName. '
+                'Zmień zamówienie lub zapytaj obsługę.';
+          }
+        } catch (_) {
+          // jak coś pójdzie nie tak, zostanie domyślny komunikat
+        }
+
+        throw Exception(niceMessage);
       }
-      final body = jsonDecode(r.body);
-      if (body['added'] != 'ok') {
-        throw Exception('Add item error: ${body['error'] ?? body}');
-      }
+
+      // inne błędy z backendu – pokaż po prostu tekst z "added"
+      throw Exception(added);
     }
   }
+}
 
   /// DOSTOSOWANE DO BACKENDU:
   /// GET /order/show/<tableNumber>

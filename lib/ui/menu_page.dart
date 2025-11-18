@@ -91,7 +91,56 @@ void dispose() {
                 style: TextStyle(color: Colors.orange),
               ),
             ),
-
+          Row(
+  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+  children: [
+    if (!isPending)
+    OutlinedButton.icon(
+      onPressed: () async {
+        try {
+          await order.callHelp('WAITER');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Kelner został powiadomiony')),
+            );
+          }
+        } catch (_) {}
+      },
+      icon: const Icon(Icons.notifications),
+      label: const Text('Kelner'),
+    ),
+    if (!isPending)
+    OutlinedButton.icon(
+      onPressed: () async {
+        try {
+          await order.callHelp('CUTLERY');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Poproszono o sztućce')),
+            );
+          }
+        } catch (_) {}
+      },
+      icon: const Icon(Icons.restaurant),
+      label: const Text('Sztućce'),
+    ),
+    if (!isPending)
+    OutlinedButton.icon(
+      onPressed: () async {
+        try {
+          await order.callHelp('CLEANING');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Poproszono o sprzątanie')),
+            );
+          }
+        } catch (_) {}
+      },
+      icon: const Icon(Icons.cleaning_services),
+      label: const Text('Sprzątanie'),
+    ),
+  ],
+),
           // Reszta ekranu – lista pozycji
           Expanded(
             child: order.loading && order.menu.isEmpty
@@ -350,29 +399,38 @@ class _BasketBar extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             FilledButton.icon(
-              onPressed: canSend
-                  ? () async {
-                      try {
-                        await order.submitBasket();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Items sent to the order!'),
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
-                          );
-                        }
-                      }
-                    }
-                  : null,
-              icon: const Icon(Icons.send),
-              label: const Text('Send'),
-            ),
+  onPressed: canSend
+      ? () async {
+          try {
+            await order.submitBasket();
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Pozycje zostały dodane do zamówienia.'),
+                ),
+              );
+            }
+          } catch (e) {
+            if (!context.mounted) return;
+
+            final msg = e.toString();
+            String friendly = msg;
+
+            // jeśli wyjątek pochodzi z addItems i zawiera nasz tekst o składnikach
+            if (msg.contains('za mało składników') ||
+                msg.contains('Nie można zrealizować zamówienia')) {
+              friendly = msg; // już jest ładny
+            }
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(friendly)),
+            );
+          }
+        }
+      : null,
+  icon: const Icon(Icons.send),
+  label: const Text('Send'),
+),
           ],
         ),
       ),

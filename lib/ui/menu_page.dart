@@ -116,7 +116,7 @@ void dispose() {
                                   )
                                 : null,
                             trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min, // KLUCZOWE
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
@@ -126,8 +126,13 @@ void dispose() {
                                     color: AppColors.textPrimary,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 4),
                                 OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                    minimumSize: const Size(0, 0),
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
                                   onPressed: (isRejected || isPending)
                                       ? null
                                       : () => order.addToBasket(m),

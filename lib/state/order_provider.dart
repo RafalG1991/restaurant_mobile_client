@@ -59,24 +59,25 @@ class OrderProvider extends ChangeNotifier {
   }
 
   Future<void> ensureOrderOpened({int customersNumber = 1}) async {
-  if (tableNumber == null) {
-    throw Exception('No tableNumber');
-  }
+  if (tableNumber == null) throw Exception('No tableNumber');
 
   loading = true;
   error = null;
   notifyListeners();
 
   try {
-    final res = await _api.openOrder(tableNumber!, customersNumber: customersNumber);
+    final res = await _api.openOrder(
+      tableNumber!,
+      customersNumber: customersNumber,
+    );
 
     if (!res.ok) {
       error = res.error;
       orderStatus = null;
       orderId = null;
     } else {
-      orderId = res.orderId;         // możesz nawet go nie używać, ale niech będzie
-      orderStatus = res.status;      // najczęściej 'PENDING'
+      orderId = res.orderId;
+      orderStatus = res.status; // 'PENDING'
     }
 
     await persist();

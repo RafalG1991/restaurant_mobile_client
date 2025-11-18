@@ -15,6 +15,88 @@ class _ScanPageState extends State<ScanPage> {
   bool _showScanner = false;
   bool _handledScan = false;
 
+  Future<void> _handleScanWithGuests(BuildContext context, String raw) async {
+    final order = context.read<OrderProvider>();
+
+    try {
+      // najpierw przypnij stolik na podstawie QR (tak jak teraz)
+      await order.attachTableFromQr(raw);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Błąd skanowania: $e')),
+      );
+      _handledScan = false;
+      return;
+    }
+
+    int guests = 1;
+
+    // popup z wyborem liczby gości
+    final selected = await showDialog<int>(
+      context: context,
+      builder: (ctx) {
+        int temp = 1;
+        return AlertDialog(
+          title: const Text('Ilu gości przy tym stoliku?'),
+          content: StatefulBuilder(
+            builder: (_, setState) => Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  onPressed: temp > 1
+                      ? () => setState(() => temp--)
+                      : null,
+                  icon: const Icon(Icons.remove),
+                ),
+                Text(
+                  '$temp',
+                  style: const TextStyle(fontSize: 20),
+                ),
+                IconButton(
+                  onPressed: temp < 12
+                      ? () => setState(() => temp++)
+                      : null,
+                  icon: const Icon(Icons.add),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Anuluj'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, temp),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+
+    // user kliknął "Anuluj"
+    if (selected == null) {
+      _handledScan = false;
+      return;
+    }
+
+    guests = selected;
+
+    try {
+      await order.ensureOrderOpened(customersNumber: guests);
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/menu');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Błąd przy otwieraniu zamówienia: $e')),
+      );
+      _handledScan = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final order = context.watch<OrderProvider>();
@@ -153,18 +235,7 @@ class _ScanPageState extends State<ScanPage> {
                             if (raw == null) return;
 
                             _handledScan = true;
-                            try {
-                              await order.attachTableFromQr(raw);
-                              await order.ensureOrderOpened(customersNumber: 1);
-                              if (!mounted) return;
-                              Navigator.pushReplacementNamed(context, '/menu');
-                            } catch (e) {
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Błąd skanowania: $e')),
-                              );
-                              _handledScan = false;
-                            }
+                            await _handleScanWithGuests(context, raw);
                           },
                         ),
                         // delikatna ramka na środku

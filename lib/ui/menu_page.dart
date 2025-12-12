@@ -33,7 +33,6 @@ void initState() {
     }
     final p = context.read<OrderProvider>();
 
-    // jeśli już zaakceptowane/odrzucone – przestań pytać
     if (p.orderStatus == 'OPEN' || p.orderStatus == 'REJECTED') {
       t.cancel();
       return;
@@ -68,7 +67,6 @@ void dispose() {
       ),
       body: Column(
         children: [
-          // Pasek informacyjny o statusie zamówienia
           if (isRejected)
             Container(
               width: double.infinity,
@@ -141,7 +139,6 @@ void dispose() {
     ),
   ],
 ),
-          // Reszta ekranu – lista pozycji
           Expanded(
             child: order.loading && order.menu.isEmpty
                 ? const Center(child: CircularProgressIndicator())
@@ -221,7 +218,6 @@ class _BasketBar extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) {
-        // TU łapiemy aktualny OrderProvider – bottom sheet reaguje na notifyListeners()
         return Consumer<OrderProvider>(
           builder: (_, order, __) {
             final total = order.basketTotal;
@@ -231,13 +227,11 @@ class _BasketBar extends StatelessWidget {
                 left: 16,
                 right: 16,
                 top: 16,
-                // żeby nie wpadło pod systemowe „gesty”
                 bottom: 24 + MediaQuery.of(context).viewInsets.bottom,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // „grip” u góry
                   Container(
                     width: 40,
                     height: 4,
@@ -367,7 +361,6 @@ class _BasketBar extends StatelessWidget {
         top: false,
         child: Row(
           children: [
-            // Lewa część – kliknięcie otwiera szczegóły koszyka
             Expanded(
               child: InkWell(
                 onTap: () => _showBasketDetails(context),
@@ -415,11 +408,9 @@ class _BasketBar extends StatelessWidget {
 
             final msg = e.toString();
             String friendly = msg;
-
-            // jeśli wyjątek pochodzi z addItems i zawiera nasz tekst o składnikach
             if (msg.contains('za mało składników') ||
                 msg.contains('Nie można zrealizować zamówienia')) {
-              friendly = msg; // już jest ładny
+              friendly = msg; 
             }
 
             ScaffoldMessenger.of(context).showSnackBar(

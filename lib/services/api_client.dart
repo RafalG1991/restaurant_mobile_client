@@ -80,11 +80,6 @@ class ApiClient {
     return list;
   }
 
-  /// DOSTOSOWANE DO TWOJEGO BACKENDU:
-  /// POST /order/add
-  /// body: { id: table_id, choice: drink_id, quantity }
-  ///
-  /// Zakładam, że id stolika (table_id) == numer stolika (tableNumber).
   Future<void> addItems({
   required int tableNumber,
   required List<Map<String, dynamic>> items,
@@ -97,9 +92,9 @@ class ApiClient {
       Uri.parse('$_base/order/add'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'id': tableNumber,     // u Ciebie backend: id -> table_id
-        'choice': drinkId,     // id drinka
-        'quantity': quantity,  // ilość
+        'id': tableNumber,     
+        'choice': drinkId,     
+        'quantity': quantity, 
       }),
     );
 
@@ -115,15 +110,12 @@ class ApiClient {
     }
 
     if (added != 'ok') {
-      // backend zwraca np. "error: ingredient Rum insufficient"
       if (added.startsWith('error: ingredient') && added.contains('insufficient')) {
-        // spróbujmy wyciągnąć nazwę składnika/drinka
         String niceMessage =
             'Nie można zrealizować zamówienia – za mało składników. Zmodyfikuj zamówienie lub zapytaj obsługę.';
 
         try {
-          // "error: ingredient Rum insufficient"
-          final afterKeyword = added.split('ingredient').last.trim(); // "Rum insufficient"
+          final afterKeyword = added.split('ingredient').last.trim();
           final ingredientName = afterKeyword.replaceAll('insufficient', '').trim();
           if (ingredientName.isNotEmpty) {
             niceMessage =
@@ -131,20 +123,15 @@ class ApiClient {
                 'Zmień zamówienie lub zapytaj obsługę.';
           }
         } catch (_) {
-          // jak coś pójdzie nie tak, zostanie domyślny komunikat
         }
 
         throw Exception(niceMessage);
       }
-
-      // inne błędy z backendu – pokaż po prostu tekst z "added"
       throw Exception(added);
     }
   }
 }
 
-  /// DOSTOSOWANE DO BACKENDU:
-  /// GET /order/show/<tableNumber>
   Future<Map<String, dynamic>> showOrderByTable(int tableNumber) async {
   final r = await http.get(Uri.parse('$_base/order/show/$tableNumber'));
   if (r.statusCode >= 400) {
@@ -159,7 +146,7 @@ class ApiClient {
   );
 
   if (r.statusCode == 404) {
-    return null; // brak zamówienia
+    return null;
   }
   if (r.statusCode >= 400) {
     throw Exception('Status check failed: ${r.statusCode}');
@@ -167,6 +154,6 @@ class ApiClient {
 
   final body = jsonDecode(r.body) as Map<String, dynamic>;
   if (body['hasOrder'] != true) return null;
-  return body['status']?.toString(); // 'OPEN' / 'PENDING' / 'REJECTED'
+  return body['status']?.toString(); 
 }
 }

@@ -113,7 +113,6 @@ class _SummaryPageState extends State<SummaryPage> {
     final itemsStr = (order['items'] ?? '') as String;
     final total = (order['total'] as num?)?.toDouble() ?? 0.0;
 
-    // rozbij string "Gin Tonic x2, Mojito x1" na listę
     final List<String> itemsList = itemsStr.isEmpty
         ? []
         : itemsStr.split(',').map((s) => s.trim()).toList();

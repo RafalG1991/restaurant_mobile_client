@@ -4,7 +4,7 @@ import 'state/order_provider.dart';
 import 'ui/scan_page.dart';
 import 'ui/menu_page.dart';
 import 'ui/summary_page.dart';
-import 'theme.dart';   // <— DODAJ
+import 'theme.dart';  
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,7 +51,7 @@ class PubClientApp extends StatelessWidget {
         ),
       ),
       routes: {
-        '/': (_) => const ScanPage(),   // ekran powitalny + skaner
+        '/': (_) => const ScanPage(),  
         '/menu': (_) => const MenuPage(),
         '/summary': (_) => const SummaryPage(),
       },

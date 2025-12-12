@@ -10,7 +10,7 @@ class OrderProvider extends ChangeNotifier {
 
   int? tableNumber;
   int? orderId;
-  String? orderStatus; // 'OPEN', 'PENDING', 'REJECTED', ...
+  String? orderStatus;
   List<MenuItem> menu = [];
   final List<BasketItem> basket = [];
 
@@ -41,7 +41,6 @@ class OrderProvider extends ChangeNotifier {
   }
 
   Future<void> attachTableFromQr(String payload) async {
-    // akceptuj czyste "5" albo JSON {"tableNumber":5}
     int parsed;
     try {
       parsed = int.parse(payload.trim());
@@ -77,7 +76,7 @@ class OrderProvider extends ChangeNotifier {
       orderId = null;
     } else {
       orderId = res.orderId;
-      orderStatus = res.status; // 'PENDING'
+      orderStatus = res.status; 
     }
 
     await persist();
@@ -137,8 +136,6 @@ void removeFromBasket(BasketItem item) {
       throw Exception('No tableNumber');
     }
     if (basket.isEmpty) return;
-
-    // 1. upewnij się, że status jest aktualny
     await refreshOrderStatus();
 
     if (orderStatus != 'OPEN') {
@@ -163,7 +160,7 @@ void removeFromBasket(BasketItem item) {
     } catch (e) {
       error = e.toString();
       notifyListeners();
-      rethrow; // <<< TO JEST WAŻNE
+      rethrow;
     } finally {
       loading = false;
       notifyListeners();
@@ -182,10 +179,9 @@ void removeFromBasket(BasketItem item) {
 
     try {
       final status = await _api.getClientOrderStatus(tableNumber!);
-      orderStatus = status;  // może być null (brak zamówienia)
+      orderStatus = status;  
       notifyListeners();
     } catch (e) {
-      // można np. zapisać error, ale nie blokuj na siłę
       error = e.toString();
       notifyListeners();
     }

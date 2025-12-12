@@ -17,8 +17,6 @@ class _ScanPageState extends State<ScanPage> {
 
   Future<void> _handleScanWithGuests(BuildContext context, String raw) async {
     final order = context.read<OrderProvider>();
-
-    // 1. Najpierw przypnij stolik na podstawie QR
     try {
       await order.attachTableFromQr(raw);
     } catch (e) {
@@ -30,7 +28,6 @@ class _ScanPageState extends State<ScanPage> {
       return;
     }
 
-    // 2. Dialog z wyborem liczby gości
     int guests = 1;
 
     final selected = await showDialog<int>(
@@ -76,7 +73,6 @@ class _ScanPageState extends State<ScanPage> {
       },
     );
 
-    // user kliknął "Anuluj"
     if (selected == null) {
       _handledScan = false;
       return;
@@ -84,7 +80,6 @@ class _ScanPageState extends State<ScanPage> {
 
     guests = selected;
 
-    // 3. Spróbuj otworzyć zamówienie z tą liczbą gości
     try {
       await order.ensureOrderOpened(customersNumber: guests);
       if (!mounted) return;
@@ -149,7 +144,6 @@ class _ScanPageState extends State<ScanPage> {
 
               const SizedBox(height: 24),
 
-              // KARTA POWITALNA
               Card(
                 elevation: 4,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -184,7 +178,6 @@ class _ScanPageState extends State<ScanPage> {
 
               const SizedBox(height: 24),
 
-              // PRZYCISK SKANERA
               ElevatedButton.icon(
                 icon: const Icon(Icons.qr_code_scanner),
                 label: const Text(
@@ -201,7 +194,6 @@ class _ScanPageState extends State<ScanPage> {
 
               const SizedBox(height: 12),
 
-              // JEŚLI JUŻ ISTNIEJE SESJA DLA STOLIKA
               if (order.tableNumber != null && order.orderId != null)
                 OutlinedButton.icon(
                   icon: const Icon(Icons.shopping_bag),
@@ -218,7 +210,6 @@ class _ScanPageState extends State<ScanPage> {
 
               const SizedBox(height: 24),
 
-              // SKANER W RAMCE
               if (_showScanner)
                 Expanded(
                   child: Card(
@@ -239,7 +230,6 @@ class _ScanPageState extends State<ScanPage> {
                             await _handleScanWithGuests(context, raw);
                           },
                         ),
-                        // delikatna ramka na środku
                         Center(
                           child: Container(
                             width: 220,
